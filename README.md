@@ -1,16 +1,13 @@
-## Hi there 👋
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/flow-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/flow-light.svg">
+  <img src="assets/flow-light.svg" alt="vitorcomc — linhas independentes se conectam e formam um fluxo." width="100%">
+</picture>
 
-<!--
-**printvitorcomc/printvitorcomc** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+# Victor Alexandre
 
-Here are some ideas to get you started:
+Construo automações, conecto sistemas e aplico IA para ampliar o que as pessoas conseguem fazer.
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+Graduando em Engenharia de Software com ênfase em IA. São Paulo, Brasil.
+
+[Portfólio ↗](https://vitorcomc.com.br/) · [LinkedIn ↗](https://www.linkedin.com/in/vitorcomc/) · [E-mail ↗](mailto:victoralexandrepk@gmail.com)
