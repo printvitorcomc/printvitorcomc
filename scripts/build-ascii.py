@@ -18,8 +18,10 @@ NAME_FRAMES = 28
 COLS, ROWS, CELL = 76, 30, 7.5
 RAMP = ' .,:;irsXA253hMHGS#9B@'
 FONT = 'Courier New, Courier, monospace'
-THEMES = [('dark', '#0d1117', '#e6edf3', '#35404c'),
-          ('light', '#ffffff', '#171717', '#c3cad1')]
+# One transparent image inherits the embedding page's color scheme. Unlike
+# separate mobile pictures, there is no fixed white background or duplicate
+# dark/light download. Native cards do not depend on this image at all.
+THEMES = [('adaptive', 'none', '#171717', '#c3cad1')]
 
 
 def add(a, b): return tuple(x + y for x, y in zip(a, b))
@@ -144,26 +146,31 @@ def number(value):
 
 
 def text_rows(rows, x, y, step):
-    return ''.join(f'<tspan x="{number(x)}" y="{number(y+n*step)}">{escape(row)}</tspan>'
-                   for n, row in enumerate(rows) if row.strip())
+    result = []
+    for row_index,row in enumerate(rows):
+        if not row.strip(): continue
+        # Encode leading whitespace as an x offset instead of repeated spaces.
+        leading = len(row)-len(row.lstrip())
+        result.append(f'<tspan x="{number(x+leading*step*.6)}" y="{number(y+row_index*step)}">{escape(row.lstrip())}</tspan>')
+    return ''.join(result)
 
 
 def ascii_rows(rows, x, y, step):
     return f'<text xml:space="preserve" font-size="{number(step)}">{text_rows(rows,x,y,step)}</text>'
 
 
-def windows(spans):
+def windows(spans, duration=DURATION):
     times, values = [0], [1 if spans[0][0] == 0 else 0]
     for start, end in spans:
         if start:
-            times.append(start/DURATION)
+            times.append(start/duration)
             values.append(1)
-        if end < DURATION:
-            times.append(end/DURATION)
+        if end < duration:
+            times.append(end/duration)
             values.append(0)
     times.append(1)
     values.append(values[0])
-    return (f'<animate attributeName="opacity" dur="{DURATION}s" repeatCount="indefinite" '
+    return (f'<animate attributeName="opacity" dur="{duration}s" repeatCount="indefinite" '
             f'calcMode="discrete" keyTimes="{";".join(number(t) for t in times)}" '
             f'values="{";".join(map(str,values))}"/>')
 
@@ -227,12 +234,18 @@ def living_name():
                       f'dur="{DURATION}s" repeatCount="indefinite" calcMode="linear"/>')
         x = ' '.join(number(p[2]) for _,p in members)
         y = ' '.join(number(p[3]) for _,p in members)
-        for frame in range(NAME_FRAMES):
-            start = NAME_START+(NAME_END-NAME_START)*frame/NAME_FRAMES
-            end = NAME_START+(NAME_END-NAME_START)*(frame+1)/NAME_FRAMES
-            chars = ''.join(name_char(i,frame) for i,_ in members)
-            result.append(f'<g opacity="0">{window(start,end)}'
-                          f'<text x="{x}" y="{y}">{escape(chars)}</text></g>')
+        # Reuse four textures at the original 8 Hz rather than storing 28
+        # copies of every glyph position. Motion still interpolates at 60 Hz.
+        boundary = .125
+        source_chars = ''.join(p[-1] for _,p in members)
+        source_gate = windows([(NAME_START,NAME_START+boundary),(NAME_END-boundary,NAME_END)])
+        result.append(f'<g opacity="0">{source_gate}<text x="{x}" y="{y}">{escape(source_chars)}</text></g>')
+        result.append(f'<g opacity="0">{window(NAME_START+boundary,NAME_END-boundary)}')
+        for frame in range(4):
+            cycle_gate = windows([(frame*.125,(frame+1)*.125)],duration=.5)
+            chars = ''.join(name_char(i,frame+1) for i,_ in members)
+            result.append(f'<g opacity="{int(frame==0)}">{cycle_gate}<text x="{x}" y="{y}">{escape(chars)}</text></g>')
+        result.append('</g>')
         result.append('</g>')
     result.append('</g>')
     return ''.join(result)
@@ -266,7 +279,7 @@ def static_scene(time, ink, field):
     t = (lo+hi)/2
     p = 3*(1-t)*t*t+t**3
     background = ascii_rows(interference(time/DURATION*40),0,8,10)
-    result = f'<g font-family="{FONT}"><g fill="{field}" mask="url(#depth)">{background}</g><g fill="{ink}">'
+    result = f'<g font-family="{FONT}"><g class="field" fill="{field}" mask="url(#depth)">{background}</g><g class="form" fill="{ink}">'
     if time < MORPH_START or time >= MORPH_END:
         active = time if time < MORPH_START else MORPH_START+time-MORPH_END
         frame = min(SPIN_FRAMES-1, int(active/SPIN_SECONDS*SPIN_FRAMES))
@@ -292,13 +305,14 @@ def build():
     (ROOT/'assets').mkdir(exist_ok=True)
     for theme, paper, ink, field in THEMES:
         result = prefix(paper)
+        result += '<style>.field{fill:#c3cad1}.form{fill:#171717}@media(prefers-color-scheme:dark){.field{fill:#35404c}.form{fill:#e6edf3}}</style>'
         result += '<defs><mask id="still-depth"><rect width="864" height="200" fill="white"/><ellipse cx="432" cy="100" rx="310" ry="112" fill="url(#halo)"/></mask></defs>'
         result += '<style>.still{display:none}@media(prefers-reduced-motion:reduce){.animated{display:none}.still{display:inline}}</style>'
         result += f'<g font-family="{FONT}">'
-        result += f'<g class="animated"><g fill="{field}" mask="url(#depth)">'
+        result += f'<g class="animated"><g class="field" fill="{field}" mask="url(#depth)">'
         for i, rows in enumerate(FIELDS):
             result += f'<g opacity="{int(i==0)}">{window(i*DURATION/40,(i+1)*DURATION/40)}{ascii_rows(rows,0,8,10)}</g>'
-        result += f'</g><g fill="{ink}">'
+        result += f'</g><g class="form" fill="{ink}">'
         for i, rows in enumerate(KNOTS):
             start = i*SPIN_SECONDS/SPIN_FRAMES
             if i >= CAPTURE: start += MORPH_END-MORPH_START
@@ -306,11 +320,11 @@ def build():
                        f'{ascii_rows(rows,WIDTH/2-COLS*CELL*.3,HEIGHT/2-ROWS*CELL/2,CELL)}</g>')
         result += morph()+living_name()+'</g></g>'
         # Reduced motion: a legible, static name; no CSS or SMIL motion is visible.
-        result += f'<g class="still"><g fill="{field}" opacity=".6" mask="url(#still-depth)">{ascii_rows(FIELDS[0],0,8,10)}</g><g fill="{ink}" font-size="{CELL}">'
+        result += f'<g class="still"><g class="field" fill="{field}" opacity=".6" mask="url(#still-depth)">{ascii_rows(FIELDS[0],0,8,10)}</g><g class="form" fill="{ink}" font-size="{CELL}">'
         for _, _, tx, ty, _, _, ch in PARTICLES:
             result += f'<text x="{number(tx)}" y="{number(ty)}">{escape(ch)}</text>'
         result += '</g></g></g></svg>\n'
-        path = ROOT/'assets'/f'ascii-flow-{theme}.svg'
+        path = ROOT/'assets'/'ascii-profile.svg'
         path.write_text(result)
         print(f'{path.name}: {len(result.encode()):,} bytes; {len(PARTICLES)} particles; {DURATION} s')
         preview = ROOT/'previews'
