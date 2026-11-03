@@ -10,10 +10,11 @@ import math
 
 ROOT = Path(__file__).resolve().parents[1]
 WIDTH, HEIGHT = 864, 200
-DURATION = 16
-SPIN_FRAMES, SPIN_SECONDS = 72, 9
-MORPH_START, NAME_START, NAME_END, MORPH_END = 5.5, 7.5, 10.5, 12.5
-CAPTURE = 44
+DURATION = 10
+SPIN_FRAMES, SPIN_SECONDS = 80, 5
+MORPH_START, NAME_START, NAME_END, MORPH_END = 2.5, 3.25, 6.75, 7.5
+CAPTURE = 40
+NAME_FRAMES = 28
 COLS, ROWS, CELL = 76, 30, 7.5
 RAMP = ' .,:;irsXA253hMHGS#9B@'
 FONT = 'Courier New, Courier, monospace'
@@ -74,7 +75,7 @@ def knot(index):
 
 
 def interference(index):
-    # Exactly the same field, palette, aspect ratio and 16 s cycle as the profile.
+    # Preserve the profile's interference field, palette and aspect ratio.
     phase = math.tau * index / 40
     result = []
     for row in range(20):
@@ -133,8 +134,8 @@ PARTICLES = []
 for i, (tx, ty) in enumerate(NAME):
     sx, sy, ch = SOURCE[i*len(SOURCE)//len(NAME)]
     dx, dy = tx-sx, ty-sy
-    bend = 22*math.sin(i*2.3999632297)
-    cx, cy = dx/2 + 8*math.cos(i*.71), dy/2+bend
+    bend = 40*math.sin(i*2.3999632297)
+    cx, cy = dx/2 + 14*math.cos(i*.71), dy/2+bend
     PARTICLES.append((sx, sy, tx, ty, cx, cy, ch))
 
 
@@ -151,14 +152,15 @@ def ascii_rows(rows, x, y, step):
     return f'<text xml:space="preserve" font-size="{number(step)}">{text_rows(rows,x,y,step)}</text>'
 
 
-def window(start, end):
-    times, values = [0], [1 if start == 0 else 0]
-    if start:
-        times.append(start/DURATION)
-        values.append(1)
-    if end < DURATION:
-        times.append(end/DURATION)
-        values.append(0)
+def windows(spans):
+    times, values = [0], [1 if spans[0][0] == 0 else 0]
+    for start, end in spans:
+        if start:
+            times.append(start/DURATION)
+            values.append(1)
+        if end < DURATION:
+            times.append(end/DURATION)
+            values.append(0)
     times.append(1)
     values.append(values[0])
     return (f'<animate attributeName="opacity" dur="{DURATION}s" repeatCount="indefinite" '
@@ -166,24 +168,81 @@ def window(start, end):
             f'values="{";".join(map(str,values))}"/>')
 
 
+def window(start, end):
+    return windows([(start,end)])
+
+
+def morph_times():
+    return ';'.join(number(t/DURATION) for t in
+                    (0, MORPH_START, NAME_START, NAME_END, MORPH_END, DURATION))
+
+
 def morph():
-    times = ';'.join(number(t/DURATION) for t in (0, MORPH_START, NAME_START, NAME_END, MORPH_END, DURATION))
     timing = (f'dur="{DURATION}s" repeatCount="indefinite" calcMode="spline" '
-              f'keyPoints="0;0;1;1;0;0" keyTimes="{times}" '
+              f'keyPoints="0;0;1;1;0;0" keyTimes="{morph_times()}" '
               'keySplines="0 0 1 1;.42 0 .58 1;0 0 1 1;.42 0 .58 1;0 0 1 1"')
     result = []
     for sx, sy, tx, ty, cx, cy, ch in PARTICLES:
         path = f'M0 0Q{number(cx)} {number(cy)} {number(tx-sx)} {number(ty-sy)}'
         result.append(f'<text x="{number(sx)}" y="{number(sy)}">{escape(ch)}'
                       f'<animateMotion path="{path}" {timing}/></text>')
-    return f'<g opacity="0" font-size="{CELL}">{window(MORPH_START,MORPH_END)}{"".join(result)}</g>'
+    visible = windows([(MORPH_START,NAME_START),(NAME_END,MORPH_END)])
+    return f'<g opacity="0" font-size="{CELL}">{visible}{"".join(result)}</g>'
+
+
+def letter_of(tx):
+    return min(8, int((tx-NAME[0][0])/(12*CELL*.6)+1e-6))
+
+
+def name_motion(progress, letter):
+    # Two travelling waves. The envelope reaches zero at both handoffs, so
+    # the moving name meets the particle morph at exactly the same positions.
+    envelope = max(0, min(1,progress/.12,(1-progress)/.12))
+    phase = math.tau*(2.5*progress-letter/8)
+    return (1.4*math.sin(phase*.8)*envelope,
+            5.5*math.sin(phase)*envelope)
+
+
+def name_char(index, frame):
+    # Preserve the source glyphs for the first/last frame of each handoff.
+    if frame in (0,NAME_FRAMES-1):
+        return PARTICLES[index][-1]
+    texture = 'X253hMHGS#9B@'
+    return texture[(index*7+index//9+frame*5+frame//3)%len(texture)]
+
+
+def living_name():
+    result = [f'<g opacity="0" font-size="{CELL}">{window(NAME_START,NAME_END)}']
+    for letter in range(9):
+        members = [(i,p) for i,p in enumerate(PARTICLES) if letter_of(p[2])==letter]
+        times = [0]+[(NAME_START+(NAME_END-NAME_START)*f/(NAME_FRAMES-1))/DURATION
+                     for f in range(NAME_FRAMES)]+[1]
+        motion = ['0 0']
+        for f in range(NAME_FRAMES):
+            dx,dy = name_motion(f/(NAME_FRAMES-1),letter)
+            motion.append(f'{number(dx)} {number(dy)}')
+        motion.append('0 0')
+        result.append(f'<g><animateTransform attributeName="transform" type="translate" '
+                      f'values="{";".join(motion)}" keyTimes="{";".join(number(t) for t in times)}" '
+                      f'dur="{DURATION}s" repeatCount="indefinite" calcMode="linear"/>')
+        x = ' '.join(number(p[2]) for _,p in members)
+        y = ' '.join(number(p[3]) for _,p in members)
+        for frame in range(NAME_FRAMES):
+            start = NAME_START+(NAME_END-NAME_START)*frame/NAME_FRAMES
+            end = NAME_START+(NAME_END-NAME_START)*(frame+1)/NAME_FRAMES
+            chars = ''.join(name_char(i,frame) for i,_ in members)
+            result.append(f'<g opacity="0">{window(start,end)}'
+                          f'<text x="{x}" y="{y}">{escape(chars)}</text></g>')
+        result.append('</g>')
+    result.append('</g>')
+    return ''.join(result)
 
 
 def prefix(paper, static=False):
     return f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {WIDTH} {HEIGHT}" width="{WIDTH}" height="{HEIGHT}" role="img" aria-labelledby="title desc">
 <title id="title">vitorcomc — holograma ASCII</title>
-<desc id="desc">Um nó tridimensional gira, seus caracteres se reorganizam no nome vitorcomc e retornam ao nó, em um ciclo contínuo sobre ondas ASCII.</desc>
-<defs><radialGradient id="halo"><stop offset="0" stop-color="black"/><stop offset=".45" stop-color="black"/><stop offset="1" stop-color="white"/></radialGradient><mask id="depth"><rect width="864" height="200" fill="white"/><ellipse cx="432" cy="100" rx="155" ry="112" fill="url(#halo)">{'' if static else f'<animate attributeName="rx" values="155;155;310;310;155;155" keyTimes="0;.34375;.46875;.65625;.78125;1" dur="{DURATION}s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;.42 0 .58 1;0 0 1 1;.42 0 .58 1;0 0 1 1"/>'}</ellipse></mask></defs>
+<desc id="desc">Um nó tridimensional gira e se transforma rapidamente em vitorcomc. O nome ondula, seus caracteres continuam mudando e retornam ao nó em um ciclo contínuo.</desc>
+<defs><radialGradient id="halo"><stop offset="0" stop-color="black"/><stop offset=".45" stop-color="black"/><stop offset="1" stop-color="white"/></radialGradient><mask id="depth"><rect width="864" height="200" fill="white"/><ellipse cx="432" cy="100" rx="155" ry="112" fill="url(#halo)">{'' if static else f'<animate attributeName="rx" values="155;155;310;310;155;155" keyTimes="{morph_times()}" dur="{DURATION}s" repeatCount="indefinite" calcMode="spline" keySplines="0 0 1 1;.42 0 .58 1;0 0 1 1;.42 0 .58 1;0 0 1 1"/>'}</ellipse></mask></defs>
 <rect width="{WIDTH}" height="{HEIGHT}" fill="{paper}"/>
 '''
 
@@ -212,6 +271,13 @@ def static_scene(time, ink, field):
         active = time if time < MORPH_START else MORPH_START+time-MORPH_END
         frame = min(SPIN_FRAMES-1, int(active/SPIN_SECONDS*SPIN_FRAMES))
         result += ascii_rows(KNOTS[frame],WIDTH/2-COLS*CELL*.3,HEIGHT/2-ROWS*CELL/2,CELL)
+    elif NAME_START <= time < NAME_END:
+        progress = (time-NAME_START)/(NAME_END-NAME_START)
+        frame = min(NAME_FRAMES-1,int(progress*NAME_FRAMES))
+        for i, (_,_,tx,ty,_,_,_) in enumerate(PARTICLES):
+            dx,dy = name_motion(progress,letter_of(tx))
+            result += (f'<text font-size="{CELL}" x="{number(tx+dx)}" y="{number(ty+dy)}">'
+                       f'{escape(name_char(i,frame))}</text>')
     else:
         for sx, sy, tx, ty, cx, cy, ch in PARTICLES:
             # Quadratic trajectories. SMIL paces these by arc length; the still
@@ -231,25 +297,27 @@ def build():
         result += f'<g font-family="{FONT}">'
         result += f'<g class="animated"><g fill="{field}" mask="url(#depth)">'
         for i, rows in enumerate(FIELDS):
-            result += f'<g opacity="{int(i==0)}">{window(i*.4,(i+1)*.4)}{ascii_rows(rows,0,8,10)}</g>'
+            result += f'<g opacity="{int(i==0)}">{window(i*DURATION/40,(i+1)*DURATION/40)}{ascii_rows(rows,0,8,10)}</g>'
         result += f'</g><g fill="{ink}">'
         for i, rows in enumerate(KNOTS):
             start = i*SPIN_SECONDS/SPIN_FRAMES
             if i >= CAPTURE: start += MORPH_END-MORPH_START
             result += (f'<g opacity="{int(i==0)}">{window(start,start+SPIN_SECONDS/SPIN_FRAMES)}'
                        f'{ascii_rows(rows,WIDTH/2-COLS*CELL*.3,HEIGHT/2-ROWS*CELL/2,CELL)}</g>')
-        result += morph()+'</g></g>'
+        result += morph()+living_name()+'</g></g>'
         # Reduced motion: a legible, static name; no CSS or SMIL motion is visible.
         result += f'<g class="still"><g fill="{field}" opacity=".6" mask="url(#still-depth)">{ascii_rows(FIELDS[0],0,8,10)}</g><g fill="{ink}" font-size="{CELL}">'
         for _, _, tx, ty, _, _, ch in PARTICLES:
             result += f'<text x="{number(tx)}" y="{number(ty)}">{escape(ch)}</text>'
         result += '</g></g></g></svg>\n'
-        path = ROOT/'assets'/f'ascii-morph-{theme}.svg'
+        path = ROOT/'assets'/f'ascii-flow-{theme}.svg'
         path.write_text(result)
         print(f'{path.name}: {len(result.encode()):,} bytes; {len(PARTICLES)} particles; {DURATION} s')
         preview = ROOT/'previews'
         if preview.exists():
-            for time in (0, 5.5, 6.5, 8.5, 11.5, 12.5, 15.875, 16):
+            for time in (0, MORPH_START, (MORPH_START+NAME_START)/2,
+                         4, 4.3, 5.4, (NAME_END+MORPH_END)/2,
+                         MORPH_END, DURATION-SPIN_SECONDS/SPIN_FRAMES, DURATION):
                 (preview/f'{theme}-{time:06.3f}.svg').write_text(prefix(paper,static=True)+static_scene(time,ink,field)+'</svg>\n')
 
 
