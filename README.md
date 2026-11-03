@@ -1,7 +1,7 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/ascii-depth-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="assets/ascii-depth-light.svg">
-  <img src="assets/ascii-depth-light.svg" alt="Nó tridimensional ASCII centralizado sobre ondas de caracteres em movimento." width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/ascii-morph-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/ascii-morph-light.svg">
+  <img src="assets/ascii-morph-light.svg" alt="Holograma ASCII que gira, se transforma em vitorcomc e retorna ao nó em um loop contínuo." width="100%">
 </picture>
 
 # Victor Alexandre
