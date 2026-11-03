@@ -20,7 +20,7 @@ RAMP = ' .,:;irsXA253hMHGS#9B@'
 FONT = 'Courier New, Courier, monospace'
 # One transparent image inherits the embedding page's color scheme. Unlike
 # separate mobile pictures, there is no fixed white background or duplicate
-# dark/light download. Native cards do not depend on this image at all.
+# dark/light download.
 THEMES = [('adaptive', 'none', '#171717', '#c3cad1')]
 
 
@@ -145,6 +145,11 @@ def number(value):
     return f'{value:.6f}'.rstrip('0').rstrip('.')
 
 
+def position(value):
+    # Sub-hundredth-pixel precision is invisible at the banner's displayed size.
+    return f'{value:.2f}'.rstrip('0').rstrip('.')
+
+
 def text_rows(rows, x, y, step):
     result = []
     for row_index,row in enumerate(rows):
@@ -184,17 +189,28 @@ def morph_times():
                     (0, MORPH_START, NAME_START, NAME_END, MORPH_END, DURATION))
 
 
+def position_lists(points):
+    return (' '.join(position(x) for x,_ in points),
+            ' '.join(position(y) for _,y in points))
+
+
 def morph():
-    timing = (f'dur="{DURATION}s" repeatCount="indefinite" calcMode="spline" '
-              f'keyPoints="0;0;1;1;0;0" keyTimes="{morph_times()}" '
-              'keySplines="0 0 1 1;.42 0 .58 1;0 0 1 1;.42 0 .58 1;0 0 1 1"')
-    result = []
-    for sx, sy, tx, ty, cx, cy, ch in PARTICLES:
-        path = f'M0 0Q{number(cx)} {number(cy)} {number(tx-sx)} {number(ty-sy)}'
-        result.append(f'<text x="{number(sx)}" y="{number(sy)}">{escape(ch)}'
-                      f'<animateMotion path="{path}" {timing}/></text>')
+    # One x/y position per character lets SVG interpolate all 400 particles
+    # with two shared animations instead of 400 independent motion paths.
+    # Preserve both handoffs, the 0.75s timing, easing and the full character set.
+    source = position_lists([(p[0],p[1]) for p in PARTICLES])
+    target = position_lists([(p[2],p[3]) for p in PARTICLES])
+    chars = escape(''.join(p[-1] for p in PARTICLES))
+    result = f'<text x="{source[0]}" y="{source[1]}">{chars}'
+    for axis,name in enumerate(('x','y')):
+        values = ';'.join((source[axis],source[axis],target[axis],
+                           target[axis],source[axis],source[axis]))
+        result += (f'<animate attributeName="{name}" values="{values}" '
+                   f'keyTimes="{morph_times()}" dur="{DURATION}s" '
+                   'repeatCount="indefinite" calcMode="spline" '
+                   'keySplines="0 0 1 1;.42 0 .58 1;0 0 1 1;.42 0 .58 1;0 0 1 1"/>')
     visible = windows([(MORPH_START,NAME_START),(NAME_END,MORPH_END)])
-    return f'<g opacity="0" font-size="{CELL}">{visible}{"".join(result)}</g>'
+    return f'<g opacity="0" font-size="{CELL}">{visible}{result}</text></g>'
 
 
 def letter_of(tx):
@@ -227,7 +243,7 @@ def living_name():
         motion = ['0 0']
         for f in range(NAME_FRAMES):
             dx,dy = name_motion(f/(NAME_FRAMES-1),letter)
-            motion.append(f'{number(dx)} {number(dy)}')
+            motion.append(f'{position(dx)} {position(dy)}')
         motion.append('0 0')
         result.append(f'<g><animateTransform attributeName="transform" type="translate" '
                       f'values="{";".join(motion)}" keyTimes="{";".join(number(t) for t in times)}" '
@@ -293,10 +309,9 @@ def static_scene(time, ink, field):
                        f'{escape(name_char(i,frame))}</text>')
     else:
         for sx, sy, tx, ty, cx, cy, ch in PARTICLES:
-            # Quadratic trajectories. SMIL paces these by arc length; the still
-            # previews approximate position along each curve for easy review.
-            x = sx+2*(1-p)*p*cx+p*p*(tx-sx)
-            y = sy+2*(1-p)*p*cy+p*p*(ty-sy)
+            # Match the shared position interpolation used by the animated SVG.
+            x = sx+p*(tx-sx)
+            y = sy+p*(ty-sy)
             result += f'<text font-size="{CELL}" x="{number(x)}" y="{number(y)}">{escape(ch)}</text>'
     return result+'</g></g>'
 
@@ -321,8 +336,8 @@ def build():
         result += morph()+living_name()+'</g></g>'
         # Reduced motion: a legible, static name; no CSS or SMIL motion is visible.
         result += f'<g class="still"><g class="field" fill="{field}" opacity=".6" mask="url(#still-depth)">{ascii_rows(FIELDS[0],0,8,10)}</g><g class="form" fill="{ink}" font-size="{CELL}">'
-        for _, _, tx, ty, _, _, ch in PARTICLES:
-            result += f'<text x="{number(tx)}" y="{number(ty)}">{escape(ch)}</text>'
+        still_x,still_y = position_lists([(p[2],p[3]) for p in PARTICLES])
+        result += f'<text x="{still_x}" y="{still_y}">{escape("".join(p[-1] for p in PARTICLES))}</text>'
         result += '</g></g></g></svg>\n'
         path = ROOT/'assets'/'ascii-profile.svg'
         path.write_text(result)

@@ -91,23 +91,26 @@ def wrap(copy, font, size, limit):
     return rows
 
 
-def card(project, font, mobile=False):
+def card(project, font, mobile=False, compact=False):
     # Transparent right/bottom gutters provide spacing without GitHub-only CSS.
     width = 320 if mobile else 426
-    height = 144 if mobile else 80
-    box_height = 132 if mobile else 70
-    title_size, copy_size = (19.5,18) if mobile else (17,12)
-    title_y, copy_y = (32,62) if mobile else (26,48)
+    height = 144 if mobile else (106 if compact else 80)
+    box_height = 132 if mobile else (96 if compact else 70)
+    title_size, copy_size = (19.5,18) if mobile else ((21,16) if compact else (17,12))
+    title_y, copy_y = (32,62) if mobile else ((28,52) if compact else (26,48))
     copy_limit = 284 if mobile else 392
-    rows = wrap(project['description'],font,copy_size,copy_limit) if mobile else [project['description']]
-    assert len(rows)<=3
+    rows = wrap(project['description'],font,copy_size,copy_limit) if (mobile or compact) else [project['description']]
+    assert len(rows)<=(3 if mobile else 2)
     assert font.width(project['name'],title_size,'b')<=(274 if mobile else 365)
     assert all(font.width(row,copy_size)<=copy_limit for row in rows)
     body = f'<rect class="paper line" x=".5" y=".5" width="{width-7}" height="{box_height-1}" stroke-width="1"/>'
     body += font.text(project['name'],14,title_y,title_size,'b')
-    for i,row in enumerate(rows): body += font.text(row,14,copy_y+i*(25 if mobile else 20),copy_size,style='copy')
+    for i,row in enumerate(rows): body += font.text(row,14,copy_y+i*(25 if mobile else 22),copy_size,style='copy')
     arrow_x = 287 if mobile else 391
-    body += f'<path class="accent" d="M{arrow_x} 22l10-10m-10 0h10v10" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+    bold = font.fonts['b']
+    cap_height = bold['OS/2'].sCapHeight*title_size/bold['head'].unitsPerEm
+    arrow_y = title_y-cap_height/2+5
+    body += f'<path class="accent" d="M{arrow_x} {n(arrow_y)}l10-10m-10 0h10v10" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
     defs = font.paths({'b':project['name'],'r':project['description']})
     return svg(width,height,project['name'],project['description'],defs,body)
 
@@ -138,13 +141,36 @@ def button(name,label,font,primary=False):
     return svg(282,58,label,f'Abrir {label}',font.paths({'b':label}),body)
 
 
+def responsive_image(path, alt, intrinsic_width, mobile_path=None, mobile_width=None, columns=2, compact_path=None):
+    # GitHub strips CSS and `sizes`. Density descriptors are supported and let
+    # the image's intrinsic CSS width follow the profile's available column.
+    # The profile sidebar changes width at 1024px; 32px steps leave <=16px of
+    # spare width per card while guaranteeing two cards / three buttons per row.
+    mobile_path = mobile_path or path
+    mobile_width = mobile_width or intrinsic_width
+    result = [f'<picture><source media="(max-width: 767px)" srcset="{mobile_path} {n(mobile_width/414)}x">']
+    for lower in range(768,1280,32):
+        available = lower-(370 if lower<1024 else 434)
+        target = min(414 if columns==2 else 274,(available-(6 if columns==2 else 10))//columns)
+        variant, width = path, intrinsic_width
+        if columns==2:
+            if lower<1024:
+                variant,width = mobile_path,mobile_width
+            elif compact_path:
+                variant = compact_path
+        result.append(f'<source media="(max-width: {lower+31}px)" srcset="{variant} {n(width/target)}x">')
+    maximum = 414 if columns==2 else 274
+    result.append(f'<source srcset="{path} {n(intrinsic_width/maximum)}x"><img src="{path}" alt="{alt}"></picture>')
+    return ''.join(result)
+
+
 def image_link(project):
     slug = project['slug']
     alt = escape(f"{project['name']} — {project['description']}",quote=True)
-    return (f'<a href="{escape(project["url"],quote=True)}"><picture>'
-            f'<source media="(max-width: 767px)" srcset="assets/profile/{slug}-mobile.svg">'
-            f'<img src="assets/profile/{slug}.svg" alt="{alt}" width="414">'
-            '</picture></a>')
+    image = responsive_image(f'assets/profile/{slug}.svg',alt,426,
+                             f'assets/profile/{slug}-mobile.svg',320,
+                             compact_path=f'assets/profile/{slug}-compact.svg')
+    return f'<a href="{escape(project["url"],quote=True)}">{image}</a>'
 
 
 def section(projects):
@@ -159,7 +185,8 @@ def section(projects):
     for name,label,link in [('portfolio','Portfólio','https://vitorcomc.com.br/'),
                             ('linkedin','LinkedIn','https://www.linkedin.com/in/vitorcomc/'),
                             ('email','E-mail','mailto:victoralexandrepk@gmail.com')]:
-        result.append(f'<a href="{link}"><img src="assets/profile/contact-{name}.svg" alt="{label}" width="274"></a>')
+        image = responsive_image(f'assets/profile/contact-{name}.svg',label,282,columns=3)
+        result.append(f'<a href="{link}">{image}</a>')
     result.extend(['</p>','<!-- profile-projects:end -->'])
     return '\n'.join(result)+'\n'
 
@@ -169,9 +196,8 @@ def build(font_dir):
     projects = json.loads((ASSETS/'projects.json').read_text())
     assert len(projects)==14 and len({p['url'] for p in projects})==14
     for p in projects:
-        for mobile in (False,True):
-            suffix = '-mobile' if mobile else ''
-            (ASSETS/f'{p["slug"]}{suffix}.svg').write_text(card(p,font,mobile))
+        for mobile,compact,suffix in ((False,False,''),(True,False,'-mobile'),(False,True,'-compact')):
+            (ASSETS/f'{p["slug"]}{suffix}.svg').write_text(card(p,font,mobile,compact))
     for key,label,primary in [('portfolio','Portfólio',True),('linkedin','LinkedIn',False),('email','E-mail',False)]:
         (ASSETS/f'contact-{key}.svg').write_text(button(key,label,font,primary))
     (ASSETS/'projects-heading.svg').write_text(svg(200,42,'Projetos','Projetos',font.paths({'b':'Projetos'}),font.text('Projetos',0,29,30,'b')))
@@ -185,7 +211,7 @@ def build(font_dir):
         else:
             current = current.split('### Projetos')[0]+output
         readme.write_text(current)
-    print(f'Built {len(projects)} linked project cards in desktop/mobile variants, 3 buttons and the section heading.')
+    print(f'Built {len(projects)} linked project cards in wide/compact/mobile variants, 3 buttons and the section heading.')
 
 
 if __name__=='__main__':
