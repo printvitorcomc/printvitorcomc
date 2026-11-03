@@ -1,7 +1,7 @@
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/ascii-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="assets/ascii-light.svg">
-  <img src="assets/ascii-light.svg" alt="vitorcomc — um nó tridimensional feito de caracteres ASCII." width="100%">
+  <source media="(prefers-color-scheme: dark)" srcset="assets/ascii-depth-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="assets/ascii-depth-light.svg">
+  <img src="assets/ascii-depth-light.svg" alt="Nó tridimensional ASCII centralizado sobre ondas de caracteres em movimento." width="100%">
 </picture>
 
 # Victor Alexandre
