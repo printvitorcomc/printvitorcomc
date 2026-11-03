@@ -1,0 +1,100 @@
+[
+  {
+    "name": "LIOS",
+    "url": "https://vitorcomc.com.br/projects/lios/",
+    "description": "Produção e agendamento de posts para LinkedIn.",
+    "slug": "lios",
+    "order": 1
+  },
+  {
+    "name": "ECI",
+    "url": "https://vitorcomc.com.br/projects/eci/",
+    "description": "Estratégia e conteúdo para Instagram com IA.",
+    "slug": "eci",
+    "order": 2
+  },
+  {
+    "name": "AI Hub",
+    "url": "https://vitorcomc.com.br/projects/ai-skills-library/",
+    "description": "Biblioteca de agentes, skills e instruções de IA.",
+    "slug": "ai-skills-library",
+    "order": 3
+  },
+  {
+    "name": "Instagram Content Analyzer",
+    "url": "https://vitorcomc.com.br/projects/instagram-content-analyzer/",
+    "description": "Análise de Reels e carrosséis com registro no Notion.",
+    "slug": "instagram-content-analyzer",
+    "order": 4
+  },
+  {
+    "name": "Suno Music Producer",
+    "url": "https://vitorcomc.com.br/projects/suno/",
+    "description": "Criação de músicas com IA, da letra ao áudio.",
+    "slug": "suno",
+    "order": 5
+  },
+  {
+    "name": "Automações para Photoshop",
+    "url": "https://vitorcomc.com.br/projects/automacoes-photoshop/",
+    "description": "Scripts e plugin para layouts e carrosséis.",
+    "slug": "automacoes-photoshop",
+    "order": 6
+  },
+  {
+    "name": "Focus Garden",
+    "url": "https://vitorcomc.com.br/projects/focus-garden/",
+    "description": "App para macOS que transforma foco em um jardim.",
+    "slug": "focus-garden",
+    "order": 7
+  },
+  {
+    "name": "X Monitor",
+    "url": "https://vitorcomc.com.br/projects/x-monitor/",
+    "description": "Coleta e seleção de posts do X no Notion.",
+    "slug": "x-monitor",
+    "order": 8
+  },
+  {
+    "name": "Study OS",
+    "url": "https://vitorcomc.com.br/projects/study-os/",
+    "description": "Estudo com IA e revisão espaçada de flashcards.",
+    "slug": "study-os",
+    "order": 9
+  },
+  {
+    "name": "Migração do n8n",
+    "url": "https://vitorcomc.com.br/projects/n8n-infrastructure-migration/",
+    "description": "Migração do n8n para uma VPS menor.",
+    "slug": "n8n-infrastructure-migration",
+    "order": 10
+  },
+  {
+    "name": "Astra",
+    "url": "https://vitorcomc.com.br/projects/astra/",
+    "description": "Jornada interativa por cinco estrelas reais.",
+    "slug": "astra",
+    "order": 11
+  },
+  {
+    "name": "OEI",
+    "url": "https://vitorcomc.com.br/projects/oei/",
+    "description": "Protótipos para organizar e preparar aulas com IA.",
+    "slug": "oei",
+    "order": 12
+  },
+  {
+    "name": "Mafuá",
+    "url": "https://vitorcomc.com.br/projects/mafua/",
+    "description": "Site WordPress convertido em arquivos estáticos.",
+    "slug": "mafua",
+    "order": 13
+  },
+  {
+    "name": "Workspace Notion",
+    "url": "https://vitorcomc.com.br/projects/notion-ai-hub/",
+    "description": "Gestão de projetos, tarefas e documentos no Notion.",
+    "slug": "notion-ai-hub",
+    "order": 14
+  }
+]
