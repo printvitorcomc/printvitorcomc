@@ -1,0 +1,4 @@
+.ascii-frames/
+previews/
+__pycache__/
+node_modules/
